@@ -1,0 +1,12 @@
+music_dir: music
+wav_output_dir: musicWav
+n_fft: 4096
+hop_length: 512
+bands: [0, 10, 40, 80, 120, 180, 300, 500, 800, 1200]
+fan_value: 10
+max_time_delta: 5.0
+
+snippet : snippets/PhoneRecording.wav
+offset: True
+noise: True
+highlight: Highlighted Song String

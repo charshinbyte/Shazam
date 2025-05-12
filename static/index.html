@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Audio Matcher</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800 p-6 font-sans">
+  <div class="max-w-2xl mx-auto space-y-10">
+    <h1 class="text-3xl font-bold text-center">Audio Matcher App</h1>
+
+    <!-- Upload Song Form -->
+    <div class="bg-white p-6 rounded-xl shadow">
+      <h2 class="text-xl font-semibold mb-4">Upload Song</h2>
+      <form id="uploadForm">
+        <input type="text" name="artist" placeholder="Artist" required class="w-full p-2 border rounded mb-2"/>
+        <input type="text" name="song_name" placeholder="Song Name" required class="w-full p-2 border rounded mb-2"/>
+        <input type="file" name="file" accept=".mp3" required class="w-full mb-4"/>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Upload Song</button>
+      </form>
+      <p id="uploadResult" class="mt-2 text-sm text-green-600"></p>
+    </div>
+
+    <!-- Match Snippet Form -->
+    <div class="bg-white p-6 rounded-xl shadow">
+      <h2 class="text-xl font-semibold mb-4">Match Snippet</h2>
+      <form id="matchForm">
+        <input type="file" name="file" accept=".wav" required class="w-full mb-4"/>
+        <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Match Clip</button>
+      </form>
+      <p id="matchResult" class="mt-2 text-sm text-green-600"></p>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl shadow">
+      <h2 class="text-xl font-semibold mb-4">Record Snippet</h2>
+      <div class="space-x-2 mb-4">
+        <button id="startRecord" class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600">Start Recording</button>
+        <button id="stopRecord" disabled class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Stop Recording</button>
+      </div>
+      <audio id="audioPreview" controls class="mb-4 w-full hidden"></audio>
+      <button id="uploadRecording" disabled class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Upload Recording</button>
+      <p id="recordResult" class="mt-2 text-sm text-green-600"></p>
+    </div>
+    
+
+    <!-- Delete Songs Button -->
+    <div class="text-center">
+      <button id="deleteButton" class="bg-red-600 text-white px-6 py-2 rounded hover:bg-red-700">Delete All Songs</button>
+      <p id="deleteResult" class="mt-2 text-sm text-red-600"></p>
+    </div>
+
+  </div>
+
+  <script>
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const formData = new FormData(form);
+      const res = await fetch('/upload', { method: 'POST', body: formData });
+      const result = await res.json();
+      document.getElementById('uploadResult').textContent = result.message || 'Upload failed';
+    });
+
+    document.getElementById('matchForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const formData = new FormData(form);
+      const res = await fetch('/match', { method: 'POST', body: formData });
+      const result = await res.json();
+      document.getElementById('matchResult').textContent = result["Matched Song "] || 'No match found';
+    });
+
+    document.getElementById('deleteButton').addEventListener('click', async () => {
+      const res = await fetch('/delete', { method: 'DELETE' });
+      const result = await res.json();
+      document.getElementById('deleteResult').textContent = result.message || 'Failed to delete';
+    });
+
+    let mediaRecorder;
+  let audioChunks = [];
+  let recordingBlob = null;
+
+  const startBtn = document.getElementById('startRecord');
+  const stopBtn = document.getElementById('stopRecord');
+  const uploadBtn = document.getElementById('uploadRecording');
+  const audioPreview = document.getElementById('audioPreview');
+  const recordResult = document.getElementById('recordResult');
+
+  startBtn.addEventListener('click', async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    // Use webm container format
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+    audioChunks = [];
+
+    mediaRecorder.ondataavailable = e => {
+      if (e.data.size > 0) audioChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = () => {
+      recordingBlob = new Blob(audioChunks, { type: 'audio/webm' });
+      const url = URL.createObjectURL(recordingBlob);
+      audioPreview.src = url;
+      audioPreview.classList.remove('hidden');
+      uploadBtn.disabled = false;
+    };
+
+    mediaRecorder.start();
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    recordResult.textContent = "Recording...";
+  });
+
+  stopBtn.addEventListener('click', () => {
+    mediaRecorder.stop();
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    recordResult.textContent = "Recording stopped.";
+  });
+
+  uploadBtn.addEventListener('click', async () => {
+    if (!recordingBlob) return;
+
+    const formData = new FormData();
+    formData.append('file', recordingBlob, 'recording.webm');
+
+    const res = await fetch('/record', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const result = await res.json();
+    recordResult.textContent = result["Matched Song "] || 'No match found.';
+  });
+
+
+  </script>
+</body>
+</html>
